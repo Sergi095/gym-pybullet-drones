@@ -31,10 +31,10 @@ class FlockingUtils:
         self.sigmas_b_preys = 0.05 * np.ones(self.n_preys) # for boundary repulsion (not planning on using this)
 
         self.epsilon = 12.0
-        self.alpha = 100.0
-        self.alpha_preys = 0.05# adding alpha for preys
+        self.alpha = 3.0
+        self.alpha_preys = 1.0# adding alpha for preys
         self.beta = 2.0
-        self.kappa = 3.0
+        self.kappa = 1.0
         self.k1 = 0.5
         # self.k1 = 0.3
         self.k2 = 0.1
@@ -393,12 +393,12 @@ class FlockingUtils:
             boundary_effect_z[boundary_effect_z < 0] = 0.0
 
             self.f_x += self.fa_x + boundary_effect_x * db_bxi
-            self.f_y += self.fa_y + boundary_effect_y * db_byi
-            self.f_z += self.fa_z + boundary_effect_z * db_bzi
+            # self.f_y += self.fa_y + boundary_effect_y * db_byi
+            # self.f_z += self.fa_z + boundary_effect_z * db_bzi
         else:
             self.f_x += self.fa_x
-            self.f_y += self.fa_y
-            self.f_z += self.fa_z
+            # self.f_y += self.fa_y
+            # self.f_z += self.fa_z
 
     def calc_boun_rep_preys(self, pos_x_preys, pos_y_preys, pos_z_preys):
         d_bxi_preys = np.minimum(np.abs(self.boun_x - pos_x_preys), pos_x_preys)
@@ -424,12 +424,12 @@ class FlockingUtils:
             boundary_effect_z_preys[boundary_effect_z_preys < 0] = 0.0
 
             self.f_x_preys += self.fa_x_preys + boundary_effect_x_preys * db_bxi_preys
-            self.f_y_preys += self.fa_y_preys + boundary_effect_y_preys * db_byi_preys
-            self.f_z_preys += self.fa_z_preys + boundary_effect_z_preys * db_bzi_preys
+            # self.f_y_preys += self.fa_y_preys + boundary_effect_y_preys * db_byi_preys
+            # self.f_z_preys += self.fa_z_preys + boundary_effect_z_preys * db_bzi_preys
         else:
             self.f_x_preys += self.fa_x_preys
-            self.f_y_preys += self.fa_y_preys
-            self.f_z_preys += self.fa_z_preys
+            # self.f_y_preys += self.fa_y_preys
+            # self.f_z_preys += self.fa_z_preys
 
     def calc_u_w(self):
         f_mag = np.sqrt(np.square(self.f_x) + np.square(self.f_y) + np.square(self.f_z))
