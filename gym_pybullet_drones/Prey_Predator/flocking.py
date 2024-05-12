@@ -2,7 +2,7 @@ import numpy as np
 from swarmPlot import SwarmPlotter
 
 class FlockingUtils:
-    def __init__(self, n_predators, preys, center_x, center_y, center_z, spacing, center_x_preys, center_y_preys, center_z_preys):
+    def __init__(self, n_predators, preys, center_x, center_y, center_z, spacing, center_x_preys, center_y_preys, center_z_preys, drones_ids, perc_no_sensor, boundless):
         self.n_agents = n_predators
         self.n_preys = preys
         self.center_x = center_x
@@ -14,39 +14,51 @@ class FlockingUtils:
         self.center_z_preys = center_z_preys
         self.spacing = spacing
 
+        self.drones_ids = drones_ids
+        self.no_sensor_predators = self.no_sensor_predators(perc_no_sensor, self.drones_ids)
+
         self.boun_thresh = 0.5
         self.boun_x = 20
         self.boun_y = 20 
         self.boun_z = 20
-        self.Dp = 6.0
-        self.sensing_range = 4.0 # sensing range for preys
-        self.sensor_range = 6.0 # sensing range for predators
 
-        self.sigma = 0.5
+        self.Dp = 3.0
+        self.Dp_preys = 3.0
+
+        self.sensing_range = 2.0 # sensing range for preys
+        self.sensor_range  = 5.0 # sensing range for predators
+
+
+        self.sigma = 1.4
+        self.sigma_no_sensor = 1.7
+        self.sigma_prey = 0.7
         # self.sigma = 0.3
         self.sigmas = self.sigma * np.ones(self.n_agents)
         self.sigmas_b = 0.05 * np.ones(self.n_agents) # for boundary repulsion (not planning on using this)
 
-        self.sigmas_preys = self.sigma * np.ones(self.n_preys)
+        self.sigmas_preys = self.sigma_prey * np.ones(self.n_preys)
         self.sigmas_b_preys = 0.05 * np.ones(self.n_preys) # for boundary repulsion (not planning on using this)
 
         self.epsilon = 12.0
-        self.alpha = 3.0
+        self.alpha = 2.0
         self.alpha_preys = 1.0# adding alpha for preys
         self.beta = 2.0
-        self.kappa = 1.0
+        self.kappa = 2.0
         self.k1 = 0.5
         # self.k1 = 0.3
         self.k2 = 0.1
-        self.umax_const = 0.3
+        self.umax_const = 0.15
         # self.umax_const = 0.1
-        self.wmax = 1.5708*2
+        self.wmax = np.pi/3.0
         self.h_alignment = False
-        self.dt = 0.042
+        # self.dt = 0.042
+        self.dt = 0.05
         self.noise_pos = 0.05
         self.noise_h = np.pi / 72
         self.rng = np.random.default_rng(1234)
         self.mean_noise = 0.5
+
+
 
 
         self.d_ij = np.zeros([self.n_agents, self.n_agents])
@@ -90,7 +102,7 @@ class FlockingUtils:
         self.map_3d = 255 * np.exp(-(X ** 2 + Y ** 2 + Z ** 2) / (2 * self.sigma ** 2))
         self.grad_const_x, self.grad_const_y, self.grad_const_z = [150 / boun for boun in (self.boun_x, self.boun_y, self.boun_z)]
 
-        self.plotter = SwarmPlotter(self.n_agents, self.n_preys, self.boun_x, self.boun_y, self.boun_z)
+        self.plotter = SwarmPlotter(self.n_agents, self.n_preys, self.boun_x, self.boun_y, self.boun_z, self.no_sensor_predators, no_sensor_percentage=perc_no_sensor, boundless=boundless)
 
 
     def initialize_positions(self, preds: bool = True):
@@ -190,7 +202,13 @@ class FlockingUtils:
             return (grid_positions[:num_preys , 0], grid_positions[:num_preys , 1], grid_positions[:num_preys , 2],
                     self.pos_h_xc_preys, self.pos_h_yc_preys, self.pos_h_zc_preys)
 
-            
+    def no_sensor_predators(self, no_sensor_percentage: float, Ids: list):
+        no_sensor_agents = int(no_sensor_percentage * self.n_agents)
+        no_sensor_agents = np.random.choice(Ids, no_sensor_agents, replace=False)
+        no_sensor_predators = no_sensor_agents
+        return no_sensor_predators
+        # print(f"Predators with no sensors: {no_sensor_agents}")
+
 
 
     def calculate_rotated_vector_batch(self, X1, Y1, Z1, X2, Y2, Z2, wdt):
@@ -267,7 +285,7 @@ class FlockingUtils:
         self.d_ij_noise = self.d_ij + self.rng.uniform(-self.noise_pos, self.noise_pos, (self.n_agents, self.n_agents)) * self.dt
 
         self.d_ij_preys = np.hypot(np.hypot(pos_x_preys[:, None] - pos_x_preys, pos_y_preys[:, None] - pos_y_preys), pos_z_preys[:, None] - pos_z_preys)
-        self.d_ij_preys[(self.d_ij_preys > self.Dp) | (self.d_ij_preys == 0)] = np.inf
+        self.d_ij_preys[(self.d_ij_preys > self.Dp_preys) | (self.d_ij_preys == 0)] = np.inf
         self.d_ij_noise_preys = self.d_ij_preys + self.rng.uniform(-self.noise_pos, self.noise_pos, (self.n_preys, self.n_preys)) * self.dt
 
     def calc_ang_ij(self, pos_xs, pos_ys, pos_zs, pos_x_preys, pos_y_preys, pos_z_preys):
@@ -281,27 +299,32 @@ class FlockingUtils:
         self.ij_ang_z_preys = np.arccos((pos_z_preys - pos_z_preys[:, None]) / self.d_ij_preys)
 
 
-
-    def calc_grad_vals(self):
+    def calc_grad_vals(self, pos_xs, pos_ys, pos_zs, pos_x_preys, pos_y_preys, pos_z_preys):
         '''
         THIS METHOD IS THE DISTANCE MODULATION, I NEED TO MODIFY THIS TO FOLLOW MY PREYS
-
         '''
 
-        self.d_ij_from_preys = np.hypot(np.hypot(self.pos_h_xc_preys[:, None] - self.pos_h_xc, self.pos_h_yc_preys[:, None] - self.pos_h_yc), self.pos_h_zc_preys[:, None] - self.pos_h_zc)
+        # Calculate the 3D distance from each predator to each prey
+        self.sigmas = self.sigma * np.ones(self.n_agents)
+        self.d_ij_from_preys = np.hypot(np.hypot(pos_xs - pos_x_preys[:, None], pos_ys - pos_y_preys[:, None]), pos_zs - pos_z_preys[:, None])
         self.d_ij_from_preys[(self.d_ij_from_preys > self.sensor_range) | (self.d_ij_from_preys == 0)] = np.inf
+        # print(self.d_ij_from_preys)
         self.d_ij_from_preys_noise = self.d_ij_from_preys + self.rng.uniform(-self.noise_pos, self.noise_pos, (self.n_preys, self.n_agents)) * self.dt
         # print(self.d_ij_from_preys_noise)
         # closest prey to each predator
         closest_prey_index = np.argmin(self.d_ij_from_preys_noise, axis=0)
         closest_prey_distance = self.d_ij_from_preys_noise[closest_prey_index, np.arange(self.n_agents)]
+        closest_prey_distance[self.no_sensor_predators] = np.inf
+        # print(closest_prey_distance)
+        # self.sigmas = self.sigma + 1/closest_prey_distance
+        self.sigmas = np.where(closest_prey_distance == np.inf, self.sigma_no_sensor, self.sigma +1/ closest_prey_distance)
+        print(self.sigmas)
 
-        self.sigmas = self.sigma + 1/closest_prey_distance
-        # print(self.sigmas)
 
-    def calc_repulsion_predator_forces(self):
+    def calc_repulsion_predator_forces(self, pos_xs, pos_ys, pos_zs, pos_x_preys, pos_y_preys, pos_z_preys):
 
-        self.d_ij_from_predators = np.hypot(np.hypot(self.pos_h_xc_preys[:, None] - self.pos_h_xc, self.pos_h_yc_preys[:, None] - self.pos_h_yc), self.pos_h_zc_preys[:, None] - self.pos_h_zc)
+        self.d_ij_from_predators = np.hypot(np.hypot(pos_x_preys - pos_xs, pos_y_preys- pos_ys), pos_z_preys - pos_zs)
+        # self.d_ij_from_predators = np.sqrt((pos_xs - pos_x_preys[:, None]) ** 2 + (pos_ys - pos_y_preys[:, None]) ** 2 + (pos_zs - pos_z_preys[:, None]) ** 2)
         self.d_ij_from_predators[(self.d_ij_from_predators > self.sensing_range) | (self.d_ij_from_predators == 0)] = np.inf
         self.d_ij_from_predators_noise = self.d_ij_from_predators + self.rng.uniform(-self.noise_pos, self.noise_pos, (self.n_preys, self.n_agents)) * self.dt
 
@@ -309,9 +332,9 @@ class FlockingUtils:
         closest_predator_index = np.argmin(self.d_ij_from_predators_noise, axis=1)
         closest_predator_distance = self.d_ij_from_predators_noise[np.arange(self.n_preys), closest_predator_index]
 
-        dx = self.pos_h_xc_preys - self.pos_h_xc[closest_predator_index]
-        dy = self.pos_h_yc_preys - self.pos_h_yc[closest_predator_index]
-        dz = self.pos_h_zc_preys - self.pos_h_zc[closest_predator_index]
+        dx = pos_x_preys - pos_xs[closest_predator_index]
+        dy = pos_y_preys - pos_ys[closest_predator_index]
+        dz = pos_z_preys - pos_zs[closest_predator_index]
 
         dx_avg = np.mean(dx)
         dy_avg = np.mean(dy)
@@ -324,9 +347,13 @@ class FlockingUtils:
         
 
 
-    def calc_p_forcesADM(self):
+    def calc_p_forcesADM(self): #ONLY FOR PREDATORS
         # -((self.epsilon /1.0 )* ( (self.sigma_i / distance ) - np.sqrt( self.sigma_i / distance )))
         forces = - self.epsilon * (self.sigmas[:, np.newaxis] / self.d_ij_noise - np.sqrt(self.sigmas[:, np.newaxis] / self.d_ij_noise))
+        # forces = -self.epsilon * (np.sqrt(self.sigmas[:, np.newaxis] / self.d_ij_noise) - self.sigmas[:, np.newaxis] / self.d_ij_noise)
+        
+        # forces = -self.epsilon * (2 * (self.sigmas[:, np.newaxis] ** 4 / self.d_ij_noise ** 5) -  
+        #                             (self.sigmas[:, np.newaxis] ** 2 / self.d_ij_noise ** 3))
 
         cos_ij_ang_x = np.cos(self.ij_ang_x)
         cos_ij_ang_y = np.cos(self.ij_ang_y)
@@ -393,12 +420,12 @@ class FlockingUtils:
             boundary_effect_z[boundary_effect_z < 0] = 0.0
 
             self.f_x += self.fa_x + boundary_effect_x * db_bxi
-            # self.f_y += self.fa_y + boundary_effect_y * db_byi
-            # self.f_z += self.fa_z + boundary_effect_z * db_bzi
+            self.f_y += self.fa_y + boundary_effect_y * db_byi
+            self.f_z += self.fa_z + boundary_effect_z * db_bzi
         else:
             self.f_x += self.fa_x
-            # self.f_y += self.fa_y
-            # self.f_z += self.fa_z
+            self.f_y += self.fa_y
+            self.f_z += self.fa_z
 
     def calc_boun_rep_preys(self, pos_x_preys, pos_y_preys, pos_z_preys):
         d_bxi_preys = np.minimum(np.abs(self.boun_x - pos_x_preys), pos_x_preys)
@@ -424,12 +451,12 @@ class FlockingUtils:
             boundary_effect_z_preys[boundary_effect_z_preys < 0] = 0.0
 
             self.f_x_preys += self.fa_x_preys + boundary_effect_x_preys * db_bxi_preys
-            # self.f_y_preys += self.fa_y_preys + boundary_effect_y_preys * db_byi_preys
-            # self.f_z_preys += self.fa_z_preys + boundary_effect_z_preys * db_bzi_preys
+            self.f_y_preys += self.fa_y_preys + boundary_effect_y_preys * db_byi_preys
+            self.f_z_preys += self.fa_z_preys + boundary_effect_z_preys * db_bzi_preys
         else:
             self.f_x_preys += self.fa_x_preys
-            # self.f_y_preys += self.fa_y_preys
-            # self.f_z_preys += self.fa_z_preys
+            self.f_y_preys += self.fa_y_preys
+            self.f_z_preys += self.fa_z_preys
 
     def calc_u_w(self):
         f_mag = np.sqrt(np.square(self.f_x) + np.square(self.f_y) + np.square(self.f_z))

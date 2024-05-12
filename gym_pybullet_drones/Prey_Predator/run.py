@@ -39,7 +39,10 @@ DEFAULT_CONTROL_FREQ_HZ = 48
 DEFAULT_OUTPUT_FOLDER = 'results'
 DURATION_SEC = 200
 
-NS = 5
+NS = 10
+PERC_NO_SENSOR = 0.2
+min_distance = 1.5
+BOUNDLESS = True
 
 NUM_DRONES = NS
 PREYS = NS
@@ -48,17 +51,33 @@ init_center_x = 5
 init_center_y = 3
 init_center_z = 1
 
-min_distance = 1
+drones_ids = list(range(NUM_DRONES))
+
+
 init_center_x_preys = init_center_x + min_distance
 init_center_y_preys = init_center_y + min_distance
 init_center_z_preys = init_center_z + 0
-spacing = 0.1
+spacing = 0.5
 self_log = False
 save_dir = "./self_logs/"
 
-f_util = FlockingUtils(NUM_DRONES, PREYS, init_center_x, init_center_y, init_center_z, spacing, init_center_x_preys, init_center_y_preys, init_center_z_preys)
+f_util = FlockingUtils(NUM_DRONES,
+                       PREYS, 
+                       init_center_x, 
+                       init_center_y, 
+                       init_center_z,
+                       spacing, 
+                       init_center_x_preys, 
+                       init_center_y_preys, 
+                       init_center_z_preys, 
+                       drones_ids=drones_ids, 
+                       perc_no_sensor=PERC_NO_SENSOR,
+                       boundless=BOUNDLESS)
+
 pos_xs, pos_ys, pos_zs, pos_h_xc, pos_h_yc, pos_h_zc = f_util.initialize_positions(preds=True)
 pos_xs_preys, pos_ys_preys, pos_zs_preys, pos_h_xc_preys, pos_h_yc_preys, pos_h_zc_preys = f_util.initialize_positions(preds=False)
+
+
 
 INIT_XYZ = np.zeros([NUM_DRONES, 3])
 INIT_XYZ[:, 0] = pos_xs
@@ -123,6 +142,11 @@ def run(
     action = np.zeros((NUM_DRONES, 4))
     action_preys = np.zeros((PREYS, 4))
 
+
+    Predators_ids = env.getDroneIds()
+    # print(f"Predators_ids: {Predators_ids}")
+    
+
     pos_x = np.zeros(NUM_DRONES)
     pos_y = np.zeros(NUM_DRONES)
     pos_z = np.zeros(NUM_DRONES)
@@ -146,7 +170,7 @@ def run(
             pos_z_preys[k] = states_preys[2]
 
         # obs_preys, reward_preys, done_preys, info_preys, _ = env.step_preys(action_preys)
-
+        
 
         midpoint_x = (pos_x[0] + pos_x[1] + pos_x[2]) / 3
         midpoint_y = (pos_y[0] + pos_y[1] + pos_y[2]) / 3
@@ -171,10 +195,10 @@ def run(
 
         f_util.calc_dij(pos_x, pos_y, pos_z, pos_x_preys, pos_y_preys, pos_z_preys)
         f_util.calc_ang_ij(pos_x, pos_y, pos_z, pos_x_preys, pos_y_preys, pos_z_preys)
-        f_util.calc_grad_vals()
+        f_util.calc_grad_vals(pos_x, pos_y, pos_z, pos_x_preys, pos_y_preys, pos_z_preys)
         f_util.calc_p_forces()
         f_util.calc_p_forcesADM()
-        f_util.calc_repulsion_predator_forces()
+        f_util.calc_repulsion_predator_forces(pos_x, pos_y, pos_z, pos_x_preys, pos_y_preys, pos_z_preys)
         # f_util.calc_alignment_forces()
         f_util.calc_boun_rep_preds(pos_xs, pos_ys, pos_zs)
         f_util.calc_boun_rep_preys(pos_x_preys, pos_y_preys, pos_z_preys)
