@@ -25,12 +25,12 @@ class FlockingUtils:
         self.Dp = 3.0
         self.Dp_preys = 3.0
 
-        self.sensing_range = 2.0 # sensing range for preys
-        self.sensor_range  = 5.0 # sensing range for predators
+        self.sensing_range = 3.0 # sensing range for preys
+        self.sensor_range  = 6.0 # sensing range for predators
 
 
-        self.sigma = 0.7
-        self.sigma_no_sensor = 0.7
+        self.sigma = 1.9 # 0.7
+        self.sigma_no_sensor = 1.9#2.0 # 0.7
         self.sigma_prey = 0.7
         # self.sigma = 0.3
         self.sigmas = self.sigma * np.ones(self.n_agents)
@@ -40,10 +40,10 @@ class FlockingUtils:
         self.sigmas_b_preys = 0.05 * np.ones(self.n_preys) # for boundary repulsion (not planning on using this)
 
         self.epsilon = 12.0
-        self.alpha = 5.0
-        self.alpha_preys = 0.05# adding alpha for preys
+        self.alpha = 3.0
+        self.alpha_preys = 1.0 #0.05# adding alpha for preys
         self.beta = 2.0
-        self.kappa = 2.0
+        self.kappa = 0.5
         self.k1 = 0.5
         # self.k1 = 0.3
         self.k2 = 0.1
@@ -103,11 +103,10 @@ class FlockingUtils:
         self.grad_const_x, self.grad_const_y, self.grad_const_z = [150 / boun for boun in (self.boun_x, self.boun_y, self.boun_z)]
 
         self.plotter = SwarmPlotter(self.n_agents, self.n_preys, self.boun_x, self.boun_y, self.boun_z, self.no_sensor_predators, no_sensor_percentage=perc_no_sensor, boundless=boundless)
-
-
+    
     def initialize_positions(self, preds: bool = True):
         """
-        Place agents in a 3D grid around an initialization point with specified spacing and noise.
+        Place agents in a 2D grid around an initialization point with specified spacing and noise.
 
         Parameters:
             num_agents (int): Number of agents to place.
@@ -119,38 +118,39 @@ class FlockingUtils:
             np.array: 3D positions of agents.
         """
 
-
         if preds:
-            # Approximate cube root to start searching for dimensions
+            # Approximate square root to start searching for dimensions
             num_agents = self.n_agents
             spacing = self.spacing
             init_pos = (self.center_x, self.center_y, self.center_z)
             mean_noise = self.mean_noise
 
-            cube_root = round(num_agents ** (1 / 3))
+            square_root = round(num_agents ** 0.5)
 
             # Find dimensions that fill a space as equally as possible, even if some agents are left out
             best_diff = float('inf')
-            for x in range(cube_root, 0, -1):
-                for y in range(x, 0, -1):
-                    z = int(np.ceil(num_agents / (x * y)))
-                    total_agents = x * y * z
-                    diff = max(abs(x - y), abs(y - z), abs(x - z))
-                    if diff < best_diff and total_agents >= num_agents:
-                        best_diff = diff
-                        dimensions = (x, y, z)
+            for x in range(square_root, 0, -1):
+                y = int(np.ceil(num_agents / x))
+                total_agents = x * y
+                diff = abs(x - y)
+                if diff < best_diff and total_agents >= num_agents:
+                    best_diff = diff
+                    dimensions = (x, y)
 
-            # Generate grid positions
-            grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1], 0:dimensions[2]].reshape(3, -1).T
+            # Generate 2D grid positions
+            grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1]].reshape(2, -1).T
             grid_positions = grid_positions * spacing
 
-            # Center the grid around the init_pos
-            offset = np.array(init_pos) - (np.array(dimensions) * spacing / 2)
+            # Center the grid around the init_pos (in x and y only)
+            offset = np.array(init_pos[:2]) - (np.array(dimensions) * spacing / 2)
             grid_positions += offset
 
             # Apply noise
             noise = np.random.normal(loc=mean_noise, scale=mean_noise / 3, size=grid_positions.shape)
             grid_positions += noise
+
+            # Set z positions to the z component of init_pos
+            z_positions = np.full(grid_positions.shape[0], init_pos[2])
 
             theta = np.random.uniform(0, 2 * np.pi, self.n_agents)
             phi = np.random.uniform(0, np.pi, self.n_agents)
@@ -159,38 +159,40 @@ class FlockingUtils:
             self.pos_h_yc = np.sin(phi) * np.sin(theta)
             self.pos_h_zc = np.cos(phi)
 
-            return (grid_positions[:num_agents, 0], grid_positions[:num_agents, 1], grid_positions[:num_agents, 2],
+            return (grid_positions[:num_agents, 0], grid_positions[:num_agents, 1], z_positions[:num_agents],
                     self.pos_h_xc, self.pos_h_yc, self.pos_h_zc)
-        else: # preys
+        else:  # preys
             num_preys = self.n_preys
             spacing = self.spacing
             init_pos = (self.center_x_preys, self.center_y_preys, self.center_z_preys)
             mean_noise = self.mean_noise
 
-            cube_root = round(num_preys ** (1 / 3))
+            square_root = round(num_preys ** 0.5)
 
             # Find dimensions that fill a space as equally as possible, even if some agents are left out
             best_diff = float('inf')
-            for x in range(cube_root, 0, -1):
-                for y in range(x, 0, -1):
-                    z = int(np.ceil(num_preys / (x * y)))
-                    total_agents = x * y * z
-                    diff = max(abs(x - y), abs(y - z), abs(x - z))
-                    if diff < best_diff and total_agents >= num_preys:
-                        best_diff = diff
-                        dimensions = (x, y, z)
+            for x in range(square_root, 0, -1):
+                y = int(np.ceil(num_preys / x))
+                total_agents = x * y
+                diff = abs(x - y)
+                if diff < best_diff and total_agents >= num_preys:
+                    best_diff = diff
+                    dimensions = (x, y)
 
-            # Generate grid positions
-            grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1], 0:dimensions[2]].reshape(3, -1).T
+            # Generate 2D grid positions
+            grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1]].reshape(2, -1).T
             grid_positions = grid_positions * spacing
 
-            # Center the grid around the init_pos
-            offset = np.array(init_pos) - (np.array(dimensions) * spacing / 2)
+            # Center the grid around the init_pos (in x and y only)
+            offset = np.array(init_pos[:2]) - (np.array(dimensions) * spacing / 2)
             grid_positions += offset
 
             # Apply noise
             noise = np.random.normal(loc=mean_noise, scale=mean_noise / 3, size=grid_positions.shape)
             grid_positions += noise
+
+            # Set z positions to the z component of init_pos
+            z_positions = np.full(grid_positions.shape[0], init_pos[2])
 
             theta = np.random.uniform(0, 2 * np.pi, self.n_preys)
             phi = np.random.uniform(0, np.pi, self.n_preys)
@@ -199,8 +201,105 @@ class FlockingUtils:
             self.pos_h_yc_preys = np.sin(phi) * np.sin(theta)
             self.pos_h_zc_preys = np.cos(phi)
 
-            return (grid_positions[:num_preys , 0], grid_positions[:num_preys , 1], grid_positions[:num_preys , 2],
+            return (grid_positions[:num_preys, 0], grid_positions[:num_preys, 1], z_positions[:num_preys],
                     self.pos_h_xc_preys, self.pos_h_yc_preys, self.pos_h_zc_preys)
+
+    # def initialize_positions(self, preds: bool = True):
+    #     """
+    #     Place agents in a 3D grid around an initialization point with specified spacing and noise.
+
+    #     Parameters:
+    #         num_agents (int): Number of agents to place.
+    #         init_pos (tuple): Initialization point (x, y, z).
+    #         spacing (float): Spacing between agents.
+    #         mean_noise (float): Mean value of noise to apply to positions.
+
+    #     Returns:
+    #         np.array: 3D positions of agents.
+    #     """
+
+
+    #     if preds:
+    #         # Approximate cube root to start searching for dimensions
+    #         num_agents = self.n_agents
+    #         spacing = self.spacing
+    #         init_pos = (self.center_x, self.center_y, self.center_z)
+    #         mean_noise = self.mean_noise
+
+    #         cube_root = round(num_agents ** (1 / 2))
+
+    #         # Find dimensions that fill a space as equally as possible, even if some agents are left out
+    #         best_diff = float('inf')
+    #         for x in range(cube_root, 0, -1):
+    #             for y in range(x, 0, -1):
+    #                 z = int(np.ceil(num_agents / (x * y)))
+    #                 total_agents = x * y * z
+    #                 diff = max(abs(x - y), abs(y - z), abs(x - z))
+    #                 if diff < best_diff and total_agents >= num_agents:
+    #                     best_diff = diff
+    #                     dimensions = (x, y, z)
+
+    #         # Generate grid positions
+    #         grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1], 0:dimensions[2]].reshape(3, -1).T
+    #         grid_positions = grid_positions * spacing
+
+    #         # Center the grid around the init_pos
+    #         offset = np.array(init_pos) - (np.array(dimensions) * spacing / 2)
+    #         grid_positions += offset
+
+    #         # Apply noise
+    #         noise = np.random.normal(loc=mean_noise, scale=mean_noise / 3, size=grid_positions.shape)
+    #         grid_positions += noise
+
+    #         theta = np.random.uniform(0, 2 * np.pi, self.n_agents)
+    #         phi = np.random.uniform(0, np.pi, self.n_agents)
+
+    #         self.pos_h_xc = np.sin(phi) * np.cos(theta)
+    #         self.pos_h_yc = np.sin(phi) * np.sin(theta)
+    #         self.pos_h_zc = np.cos(phi)
+
+    #         return (grid_positions[:num_agents, 0], grid_positions[:num_agents, 1], grid_positions[:num_agents, 2],
+    #                 self.pos_h_xc, self.pos_h_yc, self.pos_h_zc)
+    #     else: # preys
+    #         num_preys = self.n_preys
+    #         spacing = self.spacing
+    #         init_pos = (self.center_x_preys, self.center_y_preys, self.center_z_preys)
+    #         mean_noise = self.mean_noise
+
+    #         cube_root = round(num_preys ** (1 / 2))
+
+    #         # Find dimensions that fill a space as equally as possible, even if some agents are left out
+    #         best_diff = float('inf')
+    #         for x in range(cube_root, 0, -1):
+    #             for y in range(x, 0, -1):
+    #                 z = int(np.ceil(num_preys / (x * y)))
+    #                 total_agents = x * y * z
+    #                 diff = max(abs(x - y), abs(y - z), abs(x - z))
+    #                 if diff < best_diff and total_agents >= num_preys:
+    #                     best_diff = diff
+    #                     dimensions = (x, y, z)
+
+    #         # Generate grid positions
+    #         grid_positions = np.mgrid[0:dimensions[0], 0:dimensions[1], 0:dimensions[2]].reshape(3, -1).T
+    #         grid_positions = grid_positions * spacing
+
+    #         # Center the grid around the init_pos
+    #         offset = np.array(init_pos) - (np.array(dimensions) * spacing / 2)
+    #         grid_positions += offset
+
+    #         # Apply noise
+    #         noise = np.random.normal(loc=mean_noise, scale=mean_noise / 3, size=grid_positions.shape)
+    #         grid_positions += noise
+
+    #         theta = np.random.uniform(0, 2 * np.pi, self.n_preys)
+    #         phi = np.random.uniform(0, np.pi, self.n_preys)
+
+    #         self.pos_h_xc_preys = np.sin(phi) * np.cos(theta)
+    #         self.pos_h_yc_preys = np.sin(phi) * np.sin(theta)
+    #         self.pos_h_zc_preys = np.cos(phi)
+
+    #         return (grid_positions[:num_preys , 0], grid_positions[:num_preys , 1], grid_positions[:num_preys , 2],
+    #                 self.pos_h_xc_preys, self.pos_h_yc_preys, self.pos_h_zc_preys)
 
     def no_sensor_predators(self, no_sensor_percentage: float, Ids: list):
         no_sensor_agents = int(no_sensor_percentage * self.n_agents)
@@ -305,10 +404,11 @@ class FlockingUtils:
         '''
 
         # Calculate the 3D distance from each predator to each prey
+        # self.sigma  = 1.8
         self.sigmas = self.sigma * np.ones(self.n_agents)
         self.d_ij_from_preys = np.hypot(np.hypot(pos_xs - pos_x_preys[:, None], pos_ys - pos_y_preys[:, None]), pos_zs - pos_z_preys[:, None])
         self.d_ij_from_preys[(self.d_ij_from_preys > self.sensor_range) | (self.d_ij_from_preys == 0)] = np.inf
-        # print(self.d_ij_from_preys)
+        # print(self.d_ij_from_preys)0
         self.d_ij_from_preys_noise = self.d_ij_from_preys + self.rng.uniform(-self.noise_pos, self.noise_pos, (self.n_preys, self.n_agents)) * self.dt
         # print(self.d_ij_from_preys_noise)
         # closest prey to each predator
@@ -317,8 +417,11 @@ class FlockingUtils:
         closest_prey_distance[self.no_sensor_predators] = np.inf
         # print(closest_prey_distance)
         # self.sigmas = self.sigma + 1/closest_prey_distance
-        self.sigmas = np.where(closest_prey_distance == np.inf, self.sigma_no_sensor, self.sigma +1/ closest_prey_distance * 2.0)
+        self.sigmas = np.where(closest_prey_distance == np.inf, self.sigma_no_sensor, 1.*(self.sigma + 1.5*(1/closest_prey_distance)))
+
         print(self.sigmas)
+
+
 
 
     def calc_repulsion_predator_forces(self, pos_xs, pos_ys, pos_zs, pos_x_preys, pos_y_preys, pos_z_preys):
@@ -342,7 +445,7 @@ class FlockingUtils:
 
         self.f_x_preys += self.kappa * dx_avg
         self.f_y_preys += self.kappa * dy_avg
-        self.f_z_preys += self.kappa * dz_avg
+        # self.f_z_preys += self.kappa * dz_avg
 
         
 
@@ -365,8 +468,8 @@ class FlockingUtils:
         self.f_y = self.alpha * np.sum(forces * cos_ij_ang_y, axis=1)
         self.f_y = np.where(self.f_y == 0, 0.00001, self.f_y)
 
-        self.f_z = self.alpha * np.sum(forces * cos_ij_ang_z, axis=1)
-        self.f_z = np.where(self.f_z == 0, 0.00001, self.f_z)
+        # self.f_z = self.alpha * np.sum(forces * cos_ij_ang_z, axis=1)
+        # self.f_z = np.where(self.f_z == 0, 0.00001, self.f_z)
 
     def calc_p_forces(self):
         forces = -self.epsilon * (2 * (self.sigmas_preys[:, np.newaxis] ** 4 / self.d_ij_noise_preys ** 5) -
@@ -382,8 +485,8 @@ class FlockingUtils:
         self.f_y_preys = self.alpha_preys * np.sum(forces * cos_ij_ang_y, axis=1)
         self.f_y_preys = np.where(self.f_y_preys == 0, 0.00001, self.f_y_preys)
 
-        self.f_z_preys = self.alpha_preys * np.sum(forces * cos_ij_ang_z, axis=1)
-        self.f_z_preys = np.where(self.f_z_preys == 0, 0.00001, self.f_z_preys)
+        # self.f_z_preys = self.alpha_preys * np.sum(forces * cos_ij_ang_z, axis=1)
+        # self.f_z_preys = np.where(self.f_z_preys == 0, 0.00001, self.f_z_preys)
 
     def calc_alignment_forces(self):
         av_heading = self.calculate_av_heading(self.pos_h_xc, self.pos_h_yc, self.pos_h_zc)
@@ -465,8 +568,8 @@ class FlockingUtils:
         f_mag = np.where(f_mag == 0, 0.00001, f_mag)
         f_mag_preys = np.where(f_mag_preys == 0, 0.00001, f_mag_preys)
 
-        dot_f_h = self.f_x * self.pos_h_xc + self.f_y * self.pos_h_yc + self.f_z * self.pos_h_zc
-        dot_f_h_preys = self.f_x_preys * self.pos_h_xc_preys + self.f_y_preys * self.pos_h_yc_preys + self.f_z_preys * self.pos_h_zc_preys
+        dot_f_h = self.f_x * self.pos_h_xc + self.f_y * self.pos_h_yc #+ self.f_z * self.pos_h_zc
+        dot_f_h_preys = self.f_x_preys * self.pos_h_xc_preys + self.f_y_preys * self.pos_h_yc_preys #+ self.f_z_preys * self.pos_h_zc_preys
 
         cos_dot_f_h = np.clip(dot_f_h / f_mag, -1.0, 1.0)
         cos_dot_f_h_preys = np.clip(dot_f_h_preys / f_mag_preys, -1.0, 1.0)

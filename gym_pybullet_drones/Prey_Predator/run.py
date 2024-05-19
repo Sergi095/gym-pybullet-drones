@@ -31,25 +31,25 @@ from datetime import datetime
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_PHYSICS = Physics("pyb")
-DEFAULT_GUI = False #True
+DEFAULT_GUI = 1
 DEFAULT_PLOT = False
-DEFAULT_USER_DEBUG_GUI = False
+DEFAULT_USER_DEBUG_GUI = True
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 48
 DEFAULT_OUTPUT_FOLDER = 'results'
 DURATION_SEC = 200
 
-NS = 10
-PERC_NO_SENSOR = 0.2#works with 0.2,0.5 (more or less with 0.7) (and alpha = 5.0, simas = (0.7))
-min_distance = 1.5
+NS = 30
+PERC_NO_SENSOR = 0.5# 3D: works with 0.2,0.5 (more or less with 0.7) (and alpha = 5.0, simas = (0.7))
+min_distance = 4.0
 BOUNDLESS = True
 
 NUM_DRONES = NS
 PREYS = NS
 if_cube = True
-init_center_x = 5
-init_center_y = 3
-init_center_z = 1
+init_center_x = 0
+init_center_y = 0
+init_center_z = 5
 
 drones_ids = list(range(NUM_DRONES))
 
@@ -57,7 +57,7 @@ drones_ids = list(range(NUM_DRONES))
 init_center_x_preys = init_center_x + min_distance
 init_center_y_preys = init_center_y + min_distance
 init_center_z_preys = init_center_z + 0
-spacing = 0.5
+spacing = 0.9
 self_log = False
 save_dir = "./self_logs/"
 
@@ -221,29 +221,49 @@ def run(
                                 pos_h_yc_preys,
                                 pos_h_zc_preys)
 
+        # 3D version !!! it works but it is more difficult to tune !!!!
+    
+        # for j, k in zip(range(NUM_DRONES), range(PREYS)):
+        #     # for k in range(PREYS):
+        #     # print(j,k)
+        #     vel_cmd = np.array([u[j]*np.cos(pos_hxs[j]), u[j]*np.cos(pos_hys[j]), u[j]*np.cos(pos_hzs[j])])
+        #     pos_cmd = np.array([pos_x[j], pos_y[j], pos_z[j]])
+
+        #     action[j], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+        #                                                         state=obs[j],
+        #                                                         target_pos=pos_cmd,
+        #                                                         target_vel=vel_cmd,
+        #                                                         target_rpy=np.array([0, 0, 0])
+        #                                                         )
+        #     vel_cmd_preys = np.array([u_preys[k]*np.cos(pos_h_xc_preys[k]), u_preys[k]*np.cos(pos_h_yc_preys[k]), u_preys[k]*np.cos(pos_h_zc_preys[k])])
+        #     pos_cmd_preys = np.array([pos_x_preys[k], pos_y_preys[k], pos_z_preys[k]])
+
+        #     action_preys[k], _, _ = ctrl_preys[k].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+        #                                                                     state=obs_preys[k],
+        #                                                                     target_pos=pos_cmd_preys,
+        #                                                                     target_vel=vel_cmd_preys,
+        #                                                                     target_rpy=np.array([0, 0, 0])
+        #                                                                     )
+
         for j, k in zip(range(NUM_DRONES), range(PREYS)):
-            # for k in range(PREYS):
-            # print(j,k)
-            vel_cmd = np.array([u[j]*np.cos(pos_hxs[j]), u[j]*np.cos(pos_hys[j]), u[j]*np.cos(pos_hzs[j])])
-            pos_cmd = np.array([pos_x[j], pos_y[j], pos_z[j]])
+            vel_cmd = np.array([u[j] * np.cos(pos_hxs[j]), u[j] * np.cos(pos_hys[j]), 0])
+            pos_cmd = np.array([pos_x[j], pos_y[j], pos_z[j]])  # Keep z unchanged
 
             action[j], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
-                                                                state=obs[j],
-                                                                target_pos=pos_cmd,
-                                                                target_vel=vel_cmd,
-                                                                target_rpy=np.array([0, 0, 0])
-                                                                )
-            vel_cmd_preys = np.array([u_preys[k]*np.cos(pos_h_xc_preys[k]), u_preys[k]*np.cos(pos_h_yc_preys[k]), u_preys[k]*np.cos(pos_h_zc_preys[k])])
-            pos_cmd_preys = np.array([pos_x_preys[k], pos_y_preys[k], pos_z_preys[k]])
+                                                              state=obs[j],
+                                                              target_pos=pos_cmd,
+                                                              target_vel=vel_cmd,
+                                                              target_rpy=np.array([0, 0, 0])
+                                                              )
+            vel_cmd_preys = np.array([u_preys[k] * np.cos(pos_h_xc_preys[k]), u_preys[k] * np.cos(pos_h_yc_preys[k]), 0])
+            pos_cmd_preys = np.array([pos_x_preys[k], pos_y_preys[k], pos_z_preys[k]])  # Keep z unchanged
 
             action_preys[k], _, _ = ctrl_preys[k].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
-                                                                            state=obs_preys[k],
-                                                                            target_pos=pos_cmd_preys,
-                                                                            target_vel=vel_cmd_preys,
-                                                                            target_rpy=np.array([0, 0, 0])
-                                                                            )
-
-     
+                                                                          state=obs_preys[k],
+                                                                          target_pos=pos_cmd_preys,
+                                                                          target_vel=vel_cmd_preys,
+                                                                          target_rpy=np.array([0, 0, 0])
+                                                                          ) 
 
 
         #### Log the simulation ####################################
