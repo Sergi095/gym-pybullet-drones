@@ -31,7 +31,7 @@ from datetime import datetime
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_PHYSICS = Physics("pyb")
-DEFAULT_GUI = True
+DEFAULT_GUI = False #True
 DEFAULT_PLOT = False
 DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_SIMULATION_FREQ_HZ = 240
@@ -40,7 +40,7 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DURATION_SEC = 200
 
 NS = 10
-PERC_NO_SENSOR = 0.2
+PERC_NO_SENSOR = 0.2#works with 0.2,0.5 (more or less with 0.7) (and alpha = 5.0, simas = (0.7))
 min_distance = 1.5
 BOUNDLESS = True
 
@@ -200,8 +200,9 @@ def run(
         f_util.calc_p_forcesADM()
         f_util.calc_repulsion_predator_forces(pos_x, pos_y, pos_z, pos_x_preys, pos_y_preys, pos_z_preys)
         # f_util.calc_alignment_forces()
-        f_util.calc_boun_rep_preds(pos_xs, pos_ys, pos_zs)
-        f_util.calc_boun_rep_preys(pos_x_preys, pos_y_preys, pos_z_preys)
+        if not BOUNDLESS:
+            f_util.calc_boun_rep_preds(pos_xs, pos_ys, pos_zs)
+            f_util.calc_boun_rep_preys(pos_x_preys, pos_y_preys, pos_z_preys)
         u, u_preys = f_util.calc_u_w()
         pos_hxs, pos_hys, pos_hzs, pos_h_xc_preys, pos_h_yc_preys, pos_h_zc_preys = f_util.get_heading()
         f_util.update_heading()

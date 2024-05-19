@@ -5,7 +5,7 @@ import numpy as np
 class SwarmPlotter:
     def __init__(self, n_agents, n_preys, x_lim, y_lim, z_lim, drones_no_sensors, no_sensor_percentage,boundless=False):
 
-        title = f"Swarm of {n_agents} agents and {n_preys} preys with {no_sensor_percentage}% no distance sensors predators"
+        title = f"Swarm of {n_agents} agents and {n_preys} preys with {no_sensor_percentage*100}% no distance sensors predators"
         self.n_agents = n_agents
         self.n_preys = n_preys
         self.boundless = boundless

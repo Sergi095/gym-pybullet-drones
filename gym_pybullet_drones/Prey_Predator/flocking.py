@@ -29,8 +29,8 @@ class FlockingUtils:
         self.sensor_range  = 5.0 # sensing range for predators
 
 
-        self.sigma = 1.4
-        self.sigma_no_sensor = 1.7
+        self.sigma = 0.7
+        self.sigma_no_sensor = 0.7
         self.sigma_prey = 0.7
         # self.sigma = 0.3
         self.sigmas = self.sigma * np.ones(self.n_agents)
@@ -40,8 +40,8 @@ class FlockingUtils:
         self.sigmas_b_preys = 0.05 * np.ones(self.n_preys) # for boundary repulsion (not planning on using this)
 
         self.epsilon = 12.0
-        self.alpha = 2.0
-        self.alpha_preys = 1.0# adding alpha for preys
+        self.alpha = 5.0
+        self.alpha_preys = 0.05# adding alpha for preys
         self.beta = 2.0
         self.kappa = 2.0
         self.k1 = 0.5
@@ -317,7 +317,7 @@ class FlockingUtils:
         closest_prey_distance[self.no_sensor_predators] = np.inf
         # print(closest_prey_distance)
         # self.sigmas = self.sigma + 1/closest_prey_distance
-        self.sigmas = np.where(closest_prey_distance == np.inf, self.sigma_no_sensor, self.sigma +1/ closest_prey_distance)
+        self.sigmas = np.where(closest_prey_distance == np.inf, self.sigma_no_sensor, self.sigma +1/ closest_prey_distance * 2.0)
         print(self.sigmas)
 
 
